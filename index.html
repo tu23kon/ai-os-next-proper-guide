@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI OS Idea Guide</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#5f5e58;--card:#ffffff;--line:#e4e1d8;--accent:#2f6f5e;--accent-soft:#e3f0eb;--code:#f3f1ea;--warn:#8a5a00;--warn-soft:#fbf1dc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151614;--fg:#ecebe6;--muted:#a6a59e;--card:#1e201d;--line:#33362f;--accent:#7cc4ad;--accent-soft:#1f3029;--code:#23251f;--warn:#e7b65a;--warn-soft:#2e2717}}
+:root[data-theme="dark"]{--bg:#151614;--fg:#ecebe6;--muted:#a6a59e;--card:#1e201d;--line:#33362f;--accent:#7cc4ad;--accent-soft:#1f3029;--code:#23251f;--warn:#e7b65a;--warn-soft:#2e2717}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 16px 80px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px}
+h2{font-size:1.35rem;margin:48px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:24px 0 6px}
+p,li{color:var(--fg)}
+.lead{color:var(--muted);font-size:1.08rem;margin:0 0 24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:14px 0}
+.why{background:var(--accent-soft);border-left:3px solid var(--accent);padding:10px 14px;border-radius:6px;margin:10px 0}
+.warn{background:var(--warn-soft);border-left:3px solid var(--warn);padding:10px 14px;border-radius:6px}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem}
+code{background:var(--code);padding:1px 5px;border-radius:4px}
+pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow-x:auto;line-height:1.45}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.94rem}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+.toc{columns:2;column-gap:28px;padding-left:18px}
+@media (max-width:600px){.toc{columns:1}h1{font-size:1.6rem}}
+svg{width:100%;height:auto;display:block}
+.svg-box{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.svg-core{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.svg-t{fill:var(--fg);font:600 13px -apple-system,Segoe UI,Arial,sans-serif}
+.svg-s{fill:var(--muted);font:12px -apple-system,Segoe UI,Arial,sans-serif}
+.svg-a{stroke:var(--muted);stroke-width:1.4;fill:none;marker-end:url(#arr)}
+</style>
+</head>
+<body>
+<main>
+
+<h1>AI OS Idea Guide</h1>
+<p class="lead">The design ideas behind a personal "AI operating system": one place that takes your tasks, picks a free AI model that is working right now, runs the work safely, checks the result with a second model, and remembers progress so nothing is lost. This guide describes ideas, not code — build your own version in any language and change it to fit your needs.</p>
+
+<div class="card">
+<strong>Contents</strong>
+<ol class="toc">
+<li>The core idea</li>
+<li>The big picture</li>
+<li>Model access: catalog, health, router</li>
+<li>Tasks and their life cycle</li>
+<li>Checkpoints and leases</li>
+<li>Failures and recovery</li>
+<li>Independent review</li>
+<li>Plans (multi-step work)</li>
+<li>Web research, safely</li>
+<li>Human steps: logins and actions</li>
+<li>Preferences and learning</li>
+<li>Honest bookkeeping</li>
+<li>Optional module: website builder</li>
+<li>The interface (MCP tools)</li>
+<li>Safety rules that run through everything</li>
+<li>How to build your own, step by step</li>
+</ol>
+</div>
+
+<h2>1. The core idea</h2>
+<p><strong>The OS decides; agents only do the work.</strong> An "agent" is a worker that gets a task and returns a result. It never chooses which model is used, which tools it gets, whether a result is accepted, or what happens next. All of that belongs to the OS, which decides from things it observed itself — never from what an agent claims.</p>
+<div class="why"><strong>Why:</strong> models make mistakes and web pages can contain text that tries to steer them ("ignore your instructions…"). If the worker can't change the rules, a confused or manipulated worker can only produce a bad result — which the OS then catches — not take over the system.</div>
+<p>Other ideas that follow from this:</p>
+<ul>
+<li><strong>Free first:</strong> use many free AI APIs together, so when one is down or out of quota, another takes over.</li>
+<li><strong>Nothing is lost:</strong> every step is saved to disk, so a crash or restart continues where it stopped.</li>
+<li><strong>Trust nothing from outside:</strong> web text, model replies and file contents are data, never instructions.</li>
+<li><strong>The human stays in control:</strong> logins, risky actions and preferences are the user's decisions.</li>
+</ul>
+
+<h2>2. The big picture</h2>
+<svg viewBox="0 0 820 430" role="img" aria-label="Layers of the AI OS">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="fill:var(--muted)"/></marker></defs>
+<rect class="svg-box" x="250" y="10" width="320" height="56" rx="10"/>
+<text class="svg-t" x="410" y="34" text-anchor="middle">You (chat app / editor / CLI)</text>
+<text class="svg-s" x="410" y="53" text-anchor="middle">talks to the OS through a small set of tools</text>
+<path class="svg-a" d="M410 66 L410 96"/>
+<rect class="svg-core" x="40" y="98" width="740" height="120" rx="12"/>
+<text class="svg-t" x="410" y="122" text-anchor="middle">OS core — decides everything</text>
+<text class="svg-s" x="160" y="150" text-anchor="middle">Task coordinator</text>
+<text class="svg-s" x="160" y="168" text-anchor="middle">life cycle · leases</text>
+<text class="svg-s" x="330" y="150" text-anchor="middle">Checkpoints</text>
+<text class="svg-s" x="330" y="168" text-anchor="middle">saved after every step</text>
+<text class="svg-s" x="500" y="150" text-anchor="middle">Recovery policy</text>
+<text class="svg-s" x="500" y="168" text-anchor="middle">retry · reassign · stop</text>
+<text class="svg-s" x="665" y="150" text-anchor="middle">Plans · Preferences</text>
+<text class="svg-s" x="665" y="168" text-anchor="middle">user-owned settings</text>
+<text class="svg-s" x="410" y="200" text-anchor="middle">picks the agent · grants tools · accepts or rejects results · handles human steps</text>
+<path class="svg-a" d="M220 218 L150 258"/><path class="svg-a" d="M410 218 L410 258"/><path class="svg-a" d="M600 218 L670 258"/>
+<rect class="svg-box" x="40" y="260" width="220" height="74" rx="10"/>
+<text class="svg-t" x="150" y="284" text-anchor="middle">Agents (workers)</text>
+<text class="svg-s" x="150" y="303" text-anchor="middle">model · research · browser</text>
+<text class="svg-s" x="150" y="320" text-anchor="middle">website builder · reviewer</text>
+<rect class="svg-box" x="300" y="260" width="220" height="74" rx="10"/>
+<text class="svg-t" x="410" y="284" text-anchor="middle">Model router</text>
+<text class="svg-s" x="410" y="303" text-anchor="middle">healthy providers first</text>
+<text class="svg-s" x="410" y="320" text-anchor="middle">fails over automatically</text>
+<rect class="svg-box" x="560" y="260" width="220" height="74" rx="10"/>
+<text class="svg-t" x="670" y="284" text-anchor="middle">Tools</text>
+<text class="svg-s" x="670" y="303" text-anchor="middle">web search · page fetch</text>
+<text class="svg-s" x="670" y="320" text-anchor="middle">browser (opt-in)</text>
+<path class="svg-a" d="M410 334 L410 364"/><path class="svg-a" d="M670 334 L670 364"/>
+<rect class="svg-box" x="300" y="366" width="220" height="54" rx="10"/>
+<text class="svg-t" x="410" y="388" text-anchor="middle">Free AI providers</text>
+<text class="svg-s" x="410" y="406" text-anchor="middle">many APIs, health-checked</text>
+<rect class="svg-box" x="560" y="366" width="220" height="54" rx="10"/>
+<text class="svg-t" x="670" y="388" text-anchor="middle">The web</text>
+<text class="svg-s" x="670" y="406" text-anchor="middle">always treated as untrusted</text>
+</svg>
+
+<h2>3. Model access: catalog, health, router</h2>
+<h3>Catalog</h3>
+<p>A list of AI providers with free tiers (several offer free API access to good models). For each: name, API style (most speak the "OpenAI-compatible" format), base URL, which environment variable holds its key, default model, and what it is good at. Keys live only in a local <code>.env</code> file that is never shared or committed.</p>
+<h3>Health</h3>
+<p>The OS sends each provider a tiny test request ("probe") and remembers the outcome with an expiry time:</p>
+<table>
+<tr><th>State</th><th>Meaning</th><th>Example expiry</th></tr>
+<tr><td>HEALTHY</td><td>answered correctly</td><td>24 h</td></tr>
+<tr><td>DEGRADED</td><td>temporary problem (rate limit, timeout, server error) — retry soon</td><td>30 min</td></tr>
+<tr><td>BROKEN</td><td>permanent problem (bad key, unknown model) — needs a settings change</td><td>24 h</td></tr>
+<tr><td>UNASSESSED</td><td>no fresh result yet</td><td>—</td></tr>
+</table>
+<p>Probing runs in the background at startup so the system is usable immediately. Results are saved to a status file, so a restart doesn't re-probe everything.</p>
+<h3>Router</h3>
+<p>For each model call: take the providers that are configured and not cooling down, order them (healthy first, then degraded, best match for the task's capability first), and try them one by one. On a temporary error, put that provider on a short cooldown and move to the next; on a permanent error, take it out of the pool. Record <em>why</em> each provider was chosen or skipped.</p>
+<pre>for provider in ordered_candidates(task.capability):
+    try:
+        reply = provider.call(request)
+        mark_success(provider)
+        return reply, provider.name, reply.model     # who really answered
+    except TemporaryError:
+        cooldown(provider, minutes=5); continue
+    except PermanentError:
+        remove_from_pool(provider); continue
+raise NoProviderAvailable(decision_log)</pre>
+<div class="why"><strong>Why:</strong> free tiers are unreliable one by one but reliable together. Keep a safety rule: if every provider looks broken, keep them rather than emptying the pool, so the system never locks itself out.</div>
+
+<h2>4. Tasks and their life cycle</h2>
+<p>Every piece of work is a <strong>task</strong> with a goal, a required capability (general, reasoning, coding, research, browser…), an attempt limit and a status. Status changes follow a strict table; anything not in it is rejected:</p>
+<pre>QUEUED → PLANNING → ASSIGNED → RUNNING → CHECKPOINTED → COMPLETED
+                                   ↘ BLOCKED  (needs a human)  → back to QUEUED
+                                   ↘ FAILED   (recovery decides) → back to QUEUED or stays failed
+CHECKPOINTED → back to QUEUED if review asks for rework
+COMPLETED and CANCELLED are final.</pre>
+<p>A task can only be completed <em>from</em> CHECKPOINTED, so every accepted result is saved before it counts. Tasks can be submitted to run in the background; the user asks for status or the result later.</p>
+
+<h2>5. Checkpoints and leases</h2>
+<p><strong>Checkpoint:</strong> after every meaningful step, write the full task state to a file (write to a temp file, then rename — so a crash never leaves half a file). Store a hash or integrity check so a damaged or tampered checkpoint is detected and refused.</p>
+<p><strong>Lease:</strong> before working on a task, a worker process creates a lock file for it, exclusively. The lease has an owner, an expiry time and a <em>fencing token</em> — a number that goes up with every new holder. If a process freezes and its lease expires, another may take over; when the old one wakes up, its next checkpoint sees a newer token and it stops without writing.</p>
+<div class="why"><strong>Why:</strong> this makes it safe to run several windows/processes at once and to restart at any time. Two owners can never write the same task.</div>
+<p><strong>Startup recovery:</strong> on start, look for tasks a stopped process left mid-way (running, accepted-but-not-reviewed, or a login the user finished). Resume each through the normal path — take its lease, validate its checkpoint, let the recovery policy decide. Every restart uses up an attempt, so recovery can never loop forever.</p>
+
+<h2>6. Failures and recovery</h2>
+<p>The OS classifies each failure from what <em>it</em> observed (not from the agent's explanation), then decides:</p>
+<table>
+<tr><th>Failure class</th><th>Typical decision</th></tr>
+<tr><td>Provider trouble (rate limit, outage)</td><td>retry; the router will pick another provider</td></tr>
+<tr><td>Agent's fault (bad output, crashed)</td><td>retry, but after 2 failures exclude that agent and assign another</td></tr>
+<tr><td>Timeout / deadline passed</td><td>stop or retry depending on the deadline</td></tr>
+<tr><td>Needs a human (login, approval)</td><td>BLOCKED — wait, never guess</td></tr>
+<tr><td>Not allowed / invalid task</td><td>never retried automatically</td></tr>
+</table>
+<p>Cancellation is a first-class operation: it saves a checkpoint first, then aborts running work (including web requests), and only the process holding the lease can do it.</p>
+
+<h2>7. Independent review</h2>
+<p>When an agent returns a result, a <strong>reviewer</strong> agent checks it before it's accepted: does it actually answer the goal, is it complete, does it follow the user's preferences? Rules that keep review honest:</p>
+<ul>
+<li>A reviewer never reviews work it produced itself.</li>
+<li>It receives the task and the result <em>as data</em>, and must answer in a strict format (accept / rework + reasons). An unreadable review counts as a failure, not as "accepted".</li>
+<li>For browser or research work, the reviewer judges against the OS's own record of what really happened (pages fetched, actions taken), not the agent's story.</li>
+<li><strong>Exact-output contracts:</strong> if the user says "Return exactly X and do nothing else", the OS checks the answer itself, character by character. No model decides that.</li>
+</ul>
+
+<h2>8. Plans (multi-step work)</h2>
+<p>A plan is a short ordered list of steps (e.g. at most 5) that the <em>user</em> asks for. The OS runs one step at a time, each as a normal task (with review, checkpoints and recovery), waits for it to finish, and only then starts the next. A later step receives earlier results only as bounded data written into its goal. Agents can't create, change or extend a plan.</p>
+<div class="why"><strong>Why:</strong> long autonomous chains drift and multiply errors. Short, user-owned plans keep big jobs predictable and resumable (a plan can be paused and resumed after a restart).</div>
+
+<h2>9. Web research, safely</h2>
+<p>Research is mostly <em>deterministic</em>: the OS turns the task into a short search query (removing instructions, URLs and anything that tries to steer the system), runs one search, fetches the top results in order, and keeps for every source how it was found. A model then condenses each source and writes the final answer with citations — it can only cite what the tools actually returned.</p>
+<p>Search sources are pluggable (keyless ones like Wikipedia or a self-hosted SearXNG, or keyed APIs like Exa/Tavily) and off by default, because searching sends your query to a third party.</p>
+<p><strong>Fetching pages safely</strong> (important if you build this):</p>
+<ul>
+<li>Only http/https; block local and private network addresses (so a page can't trick the OS into calling your router or internal services).</li>
+<li>Resolve DNS, check the address, then connect to <em>that exact address</em> (prevents "DNS rebinding"). Re-check every redirect.</li>
+<li>Read at most N bytes; convert HTML to text without running scripts.</li>
+<li>Send fixed headers only — never cookies, auth headers or anything from your environment.</li>
+<li>Mark all web text as untrusted wherever it leaves the tool, and redact anything that looks like a secret.</li>
+</ul>
+<p>A real browser (e.g. Playwright) is an optional extra tool for pages that need JavaScript, granted only to tasks that need it.</p>
+
+<h2>10. Human steps: logins and actions</h2>
+<p>When a task reaches a site that needs the user to sign in, the OS <strong>pauses</strong> the task, shows a safe instruction ("please sign in to example.com"), and waits for an explicit "done" from the user. It never asks for, stores or shows passwords, cookies or tokens — only the site's origin is kept. The same pattern works for any step only a human can do (approve a payment, solve a captcha, confirm a risky action).</p>
+
+<h2>11. Preferences and learning</h2>
+<p>The user can set preferences ("answers short", "use British spelling", "never use provider X"). Levels of trust, highest first:</p>
+<ol>
+<li>What the user stated explicitly</li>
+<li>Instructions in the current task (can be promoted to a lasting preference on request)</li>
+<li>Learned preferences — lowest trust</li>
+</ol>
+<p>Agents only <em>see</em> resolved preferences and may <em>propose</em> observations. A learned preference becomes active only after the user corrects the same thing several times, and it can never override something the user said. The user can view, confirm, reject or delete any of them.</p>
+
+<h2>12. Honest bookkeeping</h2>
+<ul>
+<li><strong>Attribution:</strong> record which provider and model really answered, taken from the API response metadata — never from what the model says about itself.</li>
+<li><strong>Context usage:</strong> track tokens only when the provider reports them; warn at ~80% of the model's limit. If it's unknown, show "unknown", don't estimate.</li>
+<li><strong>No secrets in logs:</strong> routing summaries, status reports and errors never contain keys or account IDs.</li>
+</ul>
+
+<h2>13. Optional module: website builder</h2>
+<p>The same machinery can run a bigger pipeline as a chain of reviewed stages, for example: brief → find reference sites → capture and analyse them (layout, colours, type) → design spec → build → automated tests → review → iterate. Each stage is a task with its own checkpoint, so a long build survives restarts. Text taken from reference sites is treated as untrusted data (it may contain instructions aimed at the model).</p>
+
+<h2>14. The interface (MCP tools)</h2>
+<p>The OS can run as an <strong>MCP server</strong> (Model Context Protocol), so any MCP-capable chat app or code editor can use it. A small, clear tool set works well:</p>
+<table>
+<tr><th>Tool</th><th>What it does</th></tr>
+<tr><td><code>ask_model</code></td><td>one quick routed model call</td></tr>
+<tr><td><code>task_run</code> / <code>task_submit</code></td><td>run a task now / in the background</td></tr>
+<tr><td><code>task_status</code> / <code>task_result</code></td><td>check progress / get the reviewed result</td></tr>
+<tr><td><code>task_resume</code> / <code>task_cancel</code> / <code>task_unblock</code></td><td>control a task</td></tr>
+<tr><td><code>task_login_complete</code> / <code>task_human_action_complete</code></td><td>tell the OS a human step is done</td></tr>
+<tr><td><code>plan_start</code> / <code>plan_status</code> / <code>plan_resume</code> / <code>plan_result</code></td><td>multi-step plans</td></tr>
+<tr><td><code>web_search</code> / <code>web_fetch</code> / <code>web_research</code></td><td>safe web access</td></tr>
+<tr><td><code>provider_status</code></td><td>which providers are configured, healthy and routable (never shows keys)</td></tr>
+</table>
+<p>Tools that act on a task should only work for tasks that server instance owns.</p>
+
+<h2>15. Safety rules that run through everything</h2>
+<div class="card">
+<ol>
+<li>Outside text (web, files, model replies) is data, never instructions.</li>
+<li>Keys stay in a local env file; they never appear in logs, results, errors or checkpoints.</li>
+<li>The OS checks results itself wherever a rule can be checked without a model.</li>
+<li>Every limit is explicit: attempts, tool calls, bytes read, time, steps.</li>
+<li>Pause for humans instead of guessing. Never store login data.</li>
+<li>Tests run offline with fake providers and fake keys, from an empty folder, so a real key can never be used or leaked by a test.</li>
+</ol>
+</div>
+
+<h2>16. How to build your own, step by step</h2>
+<p>Any language works (the ideas were first built in TypeScript/Node). A sensible order, each step useful on its own:</p>
+<ol>
+<li><strong>One provider, one call.</strong> Read a key from <code>.env</code>, send a prompt, print the answer.</li>
+<li><strong>Catalog + router.</strong> Add 3–5 free providers in the OpenAI-compatible format; try them in order with failover.</li>
+<li><strong>Health probes</strong> with expiry times, saved to a status file; run them in the background.</li>
+<li><strong>Tasks + life cycle table + checkpoints</strong> to disk. Make "kill the process mid-task, restart, it continues" work.</li>
+<li><strong>Reviewer</strong> with a strict reply format, never reviewing its own work.</li>
+<li><strong>Recovery policy</strong> (failure classes, attempt limits, agent exclusion) and <strong>leases</strong>.</li>
+<li><strong>Safe web fetch + search + research</strong> with sources.</li>
+<li><strong>MCP server</strong> so your chat app or editor can use it.</li>
+<li><strong>Human steps, preferences, plans</strong> — then bigger modules like the website builder.</li>
+</ol>
+<div class="warn"><strong>Tips:</strong> write the tests with a mock provider first (it's much faster and free); keep each module small; and log the router's decisions — "why did it pick this model?" is the question you'll ask most.</div>
+
+</main>
+</body>
+</html>
